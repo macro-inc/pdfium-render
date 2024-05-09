@@ -309,6 +309,46 @@ impl<'a> PdfDocument<'a> {
         &self.signatures
     }
 
+    /// Writes this [PdfDocument] to the given writer. Now with flags!
+    pub fn save_to_writer_with_flags<W: Write + 'static>(
+        &self,
+        writer: &mut W,
+        flags: u32,
+    ) -> Result<(), PdfiumError> {
+        let mut pdfium_file_writer = get_pdfium_file_writer_from_writer(writer);
+
+        let result = match self.output_version {
+            Some(version) => self.bindings.FPDF_SaveWithVersion(
+                self.handle,
+                pdfium_file_writer.as_fpdf_file_write_mut_ptr(),
+                flags.into(),
+                version
+                    .as_pdfium()
+                    .unwrap_or_else(|| PdfDocumentVersion::DEFAULT_VERSION.as_pdfium().unwrap()),
+            ),
+            None => self.bindings.FPDF_SaveAsCopy(
+                self.handle,
+                pdfium_file_writer.as_fpdf_file_write_mut_ptr(),
+                flags.into(),
+            ),
+        };
+
+        match self.bindings.is_true(result) {
+            true => {
+                // Pdfium's return value indicated success. Flush the buffer.
+
+                pdfium_file_writer.flush().map_err(PdfiumError::IoError)
+            }
+            false => {
+                // Pdfium's return value indicated failure.
+
+                Err(PdfiumError::PdfiumLibraryInternalError(
+                    PdfiumInternalError::Unknown,
+                ))
+            }
+        }
+    }
+
     /// Writes this [PdfDocument] to the given writer.
     pub fn save_to_writer<W: Write + 'static>(&self, writer: &mut W) -> Result<(), PdfiumError> {
         // TODO: AJRC - 25/5/22 - investigate supporting the FPDF_INCREMENTAL, FPDF_NO_INCREMENTAL,
