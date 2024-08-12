@@ -1,54 +1,38 @@
 //! Defines the [Pdfium] struct, a high-level idiomatic Rust wrapper around Pdfium.
 
 use crate::bindings::PdfiumLibraryBindings;
-use crate::document::{PdfDocument, PdfDocumentVersion};
 use crate::error::{PdfiumError, PdfiumInternalError};
+use crate::pdf::document::{PdfDocument, PdfDocumentVersion};
 use std::fmt::{Debug, Formatter};
 
 #[cfg(all(not(target_arch = "wasm32"), not(feature = "static")))]
-use std::ffi::OsString;
-
-#[cfg(all(not(target_arch = "wasm32"), not(feature = "static")))]
-use libloading::Library;
-
-#[cfg(all(not(target_arch = "wasm32"), not(feature = "static")))]
-use crate::native::DynamicPdfiumBindings;
-
-#[cfg(all(not(target_arch = "wasm32"), not(feature = "static")))]
-use std::path::PathBuf;
+use {
+    crate::bindings::dynamic::DynamicPdfiumBindings, libloading::Library, std::ffi::OsString,
+    std::path::PathBuf,
+};
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "static"))]
-use crate::linked::StaticPdfiumBindings;
+use crate::bindings::static_bindings::StaticPdfiumBindings;
 
 #[cfg(not(target_arch = "wasm32"))]
-use crate::utils::files::get_pdfium_file_accessor_from_reader;
-
-#[cfg(not(target_arch = "wasm32"))]
-use std::fs::File;
-
-#[cfg(not(target_arch = "wasm32"))]
-use std::io::{Read, Seek};
-
-#[cfg(not(target_arch = "wasm32"))]
-use std::path::Path;
+use {
+    crate::utils::files::get_pdfium_file_accessor_from_reader,
+    std::fs::File,
+    std::io::{Read, Seek},
+    std::path::Path,
+};
 
 #[cfg(target_arch = "wasm32")]
-use crate::wasm::{PdfiumRenderWasmState, WasmPdfiumBindings};
-
-#[cfg(target_arch = "wasm32")]
-use wasm_bindgen::JsCast;
-
-#[cfg(target_arch = "wasm32")]
-use wasm_bindgen_futures::JsFuture;
-
-#[cfg(target_arch = "wasm32")]
-use js_sys::{ArrayBuffer, Uint8Array};
-
-#[cfg(target_arch = "wasm32")]
-use web_sys::{window, Blob, Response};
+use {
+    crate::bindings::wasm::{PdfiumRenderWasmState, WasmPdfiumBindings},
+    js_sys::{ArrayBuffer, Uint8Array},
+    wasm_bindgen::JsCast,
+    wasm_bindgen_futures::JsFuture,
+    web_sys::{window, Blob, Response},
+};
 
 #[cfg(feature = "thread_safe")]
-use crate::thread_safe::ThreadSafePdfiumBindings;
+use crate::bindings::thread_safe::ThreadSafePdfiumBindings;
 
 // The following dummy declaration is used only when running cargo doc.
 // It allows documentation of WASM-specific functionality to be included
@@ -256,16 +240,16 @@ impl Pdfium {
     /// This function is not available when compiling to WASM. You have several options for
     /// loading your PDF document data in WASM:
     /// * Use the [Pdfium::load_pdf_from_fetch()] function to download document data from a
-    /// URL using the browser's built-in `fetch()` API. This function is only available when
-    /// compiling to WASM.
+    ///   URL using the browser's built-in `fetch()` API. This function is only available when
+    ///   compiling to WASM.
     /// * Use the [Pdfium::load_pdf_from_blob()] function to load document data from a
-    /// Javascript `File` or `Blob` object (such as a `File` object returned from an HTML
-    /// `<input type="file">` element). This function is only available when compiling to WASM.
+    ///   Javascript `File` or `Blob` object (such as a `File` object returned from an HTML
+    ///   `<input type="file">` element). This function is only available when compiling to WASM.
     /// * Use another method to retrieve the bytes of the target document over the network,
-    /// then load those bytes into Pdfium using either the [Pdfium::load_pdf_from_byte_slice()]
-    /// function or the [Pdfium::load_pdf_from_byte_vec()] function.
+    ///   then load those bytes into Pdfium using either the [Pdfium::load_pdf_from_byte_slice()]
+    ///   function or the [Pdfium::load_pdf_from_byte_vec()] function.
     /// * Embed the bytes of the target document directly into the compiled WASM module
-    /// using the `include_bytes!()` macro.
+    ///   using the `include_bytes!()` macro.
     #[cfg(not(target_arch = "wasm32"))]
     pub fn load_pdf_from_file<'a>(
         &'a self,
@@ -292,16 +276,16 @@ impl Pdfium {
     /// This function is not available when compiling to WASM. You have several options for
     /// loading your PDF document data in WASM:
     /// * Use the [Pdfium::load_pdf_from_fetch()] function to download document data from a
-    /// URL using the browser's built-in `fetch()` API. This function is only available when
-    /// compiling to WASM.
+    ///   URL using the browser's built-in `fetch()` API. This function is only available when
+    ///   compiling to WASM.
     /// * Use the [Pdfium::load_pdf_from_blob()] function to load document data from a
-    /// Javascript `File` or `Blob` object (such as a `File` object returned from an HTML
-    /// `<input type="file">` element). This function is only available when compiling to WASM.
+    ///   Javascript `File` or `Blob` object (such as a `File` object returned from an HTML
+    ///   `<input type="file">` element). This function is only available when compiling to WASM.
     /// * Use another method to retrieve the bytes of the target document over the network,
-    /// then load those bytes into Pdfium using either the [Pdfium::load_pdf_from_byte_slice()]
-    /// function or the [Pdfium::load_pdf_from_byte_vec()] function.
+    ///   then load those bytes into Pdfium using either the [Pdfium::load_pdf_from_byte_slice()]
+    ///   function or the [Pdfium::load_pdf_from_byte_vec()] function.
     /// * Embed the bytes of the target document directly into the compiled WASM module
-    /// using the `include_bytes!()` macro.
+    ///   using the `include_bytes!()` macro.
     #[cfg(not(target_arch = "wasm32"))]
     pub fn load_pdf_from_reader<'a, R: Read + Seek + 'a>(
         &'a self,

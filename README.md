@@ -10,13 +10,10 @@ and extract text and images from existing PDF files, and create new PDF files fr
     fn export_pdf_to_jpegs(path: &impl AsRef<Path>, password: Option<&str>) -> Result<(), PdfiumError> {
         // Renders each page in the PDF file at the given path to a separate JPEG file.
 
-        // Bind to a Pdfium library in the same directory as our Rust executable;
-        // failing that, fall back to using a Pdfium library provided by the operating system.
+        // Bind to a Pdfium library in the same directory as our Rust executable.
+        // See the "Dynamic linking" section below.
 
-        let pdfium = Pdfium::new(
-            Pdfium::bind_to_library(Pdfium::pdfium_platform_library_name_at_path("./"))
-                .or_else(|_| Pdfium::bind_to_system_library())?,
-        );
+        let pdfium = Pdfium::default();
 
         // Load the document from the given path...
 
@@ -34,8 +31,7 @@ and extract text and images from existing PDF files, and create new PDF files fr
         for (index, page) in document.pages().iter().enumerate() {
             page.render_with_config(&render_config)?
                 .as_image() // Renders this page to an image::DynamicImage...
-                .as_rgba8() // ... then converts it to an image::Image...
-                .ok_or(PdfiumError::ImageError)?
+                .into_rgb8() // ... then converts it to an image::Image...
                 .save_with_format(
                     format!("test-page-{}.jpg", index), 
                     image::ImageFormat::Jpeg
@@ -83,32 +79,20 @@ available at <https://github.com/ajrcarey/pdfium-render/tree/master/examples>. T
 _Note: upcoming release 0.9.0 will remove all deprecated items. For a complete list of deprecated
 items, see <https://github.com/ajrcarey/pdfium-render/issues/36>._
 
+Release 0.8.24 fixes a bug in certain string handling operations in the WASM bindings implementation, and introduces the ability to control the version of the Pdfium API used by `pdfium-render`. By default `pdfium-render` uses the latest released version of the Pdfium API, potentially requiring you to upgrade your Pdfium library if the latest release contains breaking changes. This can be inconvenient! To explicitly use an older API version, select one of the crate's Pdfium version feature flags when taking `pdfium-render` as a dependency in your project's `Cargo.toml`. See the "Crate features" section below for more information.
+
+Release 0.8.23 updates the Pdfium bindings to the latest upstream release, adds new function `PdfPageTextChar::text_object()` for retrieving the page object containing a specific character in a text page, deprecates the `PdfFont::name()` function in favour of `PdfFont::family()` to match changes in upstream naming, adds new functions `PdfFont::is_embedded()` and `PdfFont::data()` for retrieving embedded font data, updates the `examples/fonts.rs` example to demonstrate the new functionality, and adjusts the implementation of some internal functions in response to upstream changes. Deprecated items will be removed in release 0.9.0.
+
+Release 0.8.22 updates all examples and tests that reference functionality from the `image` crate
+to use calls compatible with both `image` 0.25.x and 0.24.x, adds support for static linking to a
+dynamic Pdfium library at compile time, adds the `PdfPages::page_size()` and `PdfPages::page_sizes()`
+functions for retrieving the size of one or all pages without first needing to load those pages
+into memory, and removes an unneeded internal dependency on the `iter_tools` crate, thanks to
+excellent contributions from both <https://github.com/DorianRudolph> and <https://github.com/aruediger>.
+
 Release 0.8.21 adds the `PdfFormFieldText::set_value()` function for setting the values of text
 form fields, thanks to an excellent contribution from <https://github.com/liammcdermott>.
 A new `examples/fill_form_field.rs` example demonstrates the new functionality.
-
-Release 0.8.20 adds support for creating new annotations, positioning those annotations,
-associating them with page objects, and retrieving and setting more annotation properties for each
-annotation type. A new `examples/create_annotations.rs` example demonstrates the extended functionality.
-
-Release 0.8.19 adds the `PdfBookmark::children_len()` function, for returning the number of direct
-child nodes of a bookmark without the need for iteration, and fixes a bug in `PdfPage::flatten()`
-to ensure that the flatten operation takes immediate effect; previously, it was necessary to drop
-and reload the page after calling `PdfPage::flatten()` in order to see the result of the flatten
-operation.
-
-Releases 0.8.17 and 0.8.18 adjust the WASM implementation of `pdfium-render` to account for some
-small packaging changes in the upstream releases of Pdfium published at
-<https://github.com/paulocoutinhox/pdfium-lib/releases>; release 0.8.17 also fixes a potential
-segmentation fault that could occur when dropping a `PdfDocument` while using a V8/XFA-enabled build
-of Pdfium.
-
-Release 0.8.16 adds the `PdfBitmap::as_rgba_bytes()` function for retrieving pixel data from a bitmap
-that has had its color channels normalized into RGBA irrespective of the original bitmap pixel format,
-corrects a bug in the traversal of bookmarks that could result in unexpected results when traversing
-deep bookmark trees, and adds the `PdfBookmark::destination()` function for retrieving the target
-destination of the action assigned to a bookmark, thanks to an excellent contribution from
-<https://github.com/xVanTuring>.
 
 ## Binding to Pdfium
 
@@ -178,8 +162,22 @@ function which binds directly to the Pdfium functions compiled into your executa
     let pdfium = Pdfium::new(Pdfium::bind_to_statically_linked_library().unwrap());
 ```
 
-As a convenience, `pdfium-render` can instruct `cargo` to link a statically-built Pdfium
-library for you. Set the path to the directory containing your pre-built library using
+As a convenience, `pdfium-render` can instruct `cargo` to link to either a dynamically-built or a
+statically-built Pdfium library for you. To link to a dynamically-built library, set the
+`PDFIUM_DYNAMIC_LIB_PATH` environment variable when you run `cargo build`, like so:
+
+```rust
+    PDFIUM_DYNAMIC_LIB_PATH="/path/containing/your/dynamic/pdfium/library" cargo build
+```
+
+`pdfium-render` will pass the following flags to `cargo`:
+
+```rust
+    cargo:rustc-link-lib=dylib=pdfium
+    cargo:rustc-link-search=native=$PDFIUM_DYNAMIC_LIB_PATH
+```
+
+To link to a statically-built library, set the path to the directory containing your library using
 the `PDFIUM_STATIC_LIB_PATH` environment variable when you run `cargo build`, like so:
 
 ```rust
@@ -193,14 +191,15 @@ the `PDFIUM_STATIC_LIB_PATH` environment variable when you run `cargo build`, li
     cargo:rustc-link-search=native=$PDFIUM_STATIC_LIB_PATH
 ```
 
-This saves you writing a custom `build.rs` yourself. If you have your own build pipeline
-that links Pdfium statically into your executable, simply leave the `PDFIUM_STATIC_LIB_PATH`
-environment variable unset.
+These two environment variables save you writing a custom `build.rs` yourself. If you have your own
+build pipeline that links Pdfium statically into your executable, simply leave these environment
+variables unset.
 
-Note that the path you set in `PDFIUM_STATIC_LIB_PATH` should not include the filename of the
-library itself; it should just be the path of the containing directory. You must make sure your
-statically-built library is named in the appropriate way for your target platform
-(`libpdfium.a` on Linux and macOS, for example) in order for the Rust compiler to locate it.
+Note that the path you set in either `PDFIUM_DYNAMIC_LIB_PATH` or `PDFIUM_STATIC_LIB_PATH`
+should not include the filename of the library itself; it should just be the path of the containing
+directory. You must make sure your library is named in the appropriate way for your target platform
+(`libpdfium.so` or `libpdfium.a` on Linux and macOS, for example) in order for the Rust compiler
+to locate it.
 
 Depending on how your Pdfium library was built, you may need to also link against a C++ standard library.
 To link against the GNU C++ standard library (`libstdc++`), use the optional `libstdc++` feature.
@@ -221,9 +220,11 @@ Alternatively, use the `link-cplusplus` crate to link against a C++ standard lib
 offers more options for deciding which standard library should be selected, including automatically
 selecting the build platform's installed default.
 
-`pdfium-render` will not build Pdfium for you; you must build Pdfium yourself, or source a
-pre-built static archive from elsewhere. For an overview of the build process, including a sample
-build script, see <https://github.com/ajrcarey/pdfium-render/issues/53>.
+`pdfium-render` will not build Pdfium for you; you must build Pdfium yourself, source a
+pre-built static archive from elsewhere, or use a dynamically built library downloaded from one
+of the sources listed above in the "Dynamic linking" section. If you wish to build a static library
+yourself, an overview of the build process - including a sample build script - is available at
+<https://github.com/ajrcarey/pdfium-render/issues/53>.
 
 ## Compiling to WASM
 
@@ -275,13 +276,19 @@ This crate provides the following optional features:
 * `thread_safe`: wraps access to Pdfium behind a mutex to ensure thread-safe access to Pdfium.
   See the "Multithreading" section above.
 
-The `image` and `thread_safe` features are enabled by default. All other features are disabled by default.
+Release 0.8.24 introduced new features to explicitly control the version of the Pdfium API used by `pdfium-render`:
+
+* `pdfium_future`: binds `PdfiumLibraryBindings` to the latest published Pdfium API at <https://pdfium.googlesource.com/pdfium/+/refs/heads/main/public>, irrespective of whether those changes have been built into a release at <https://github.com/bblanchon/pdfium-binaries/releases>. Useful for testing unreleased changes. Automatically activates the `bindings` feature.
+* `pdfium_latest`: binds `PdfiumLibraryBindings` to the latest released build of Pdfium at <https://github.com/bblanchon/pdfium-binaries/releases>, currently 6611.
+* `pdfium_6611`, `pdfium_6569`, `pdfium_6555`, `pdfium_6490`, `pdfium_6406`, `pdfium_6337`, `pdfium_6295`, `pdfium_6259`, `pdfium_6164`, `pdfium_6124`, `pdfium_6110`, `pdfium_6084`, `pdfium_6043`, `pdfium_6015`, `pdfium_5961`: binds `PdfiumLibraryBindings` to the specified version of the Pdfium API.
+
+The `image`, `thread_safe`, and `pdfium_latest` features are enabled by default. All other features are disabled by default.
 
 ## Porting existing Pdfium code from other languages
 
 The high-level idiomatic Rust interface provided by `pdfium-render` is built on top of 
-raw FFI bindings defined in the `PdfiumLibraryBindings` trait. It is completely feasible to use
-these raw FFI bindings directly if you wish, making porting existing code that calls `FPDF_*` functions
+raw FFI bindings to the Pdfium API defined in the `PdfiumLibraryBindings` trait. It is completely feasible to use
+these raw FFI bindings directly if you wish, making porting existing code that uses the Pdfium API
 trivial while still gaining the benefits of late binding and WASM compatibility.
 For instance, the following code snippet (taken from a C++ sample):
 
@@ -347,7 +354,7 @@ functions specific to interactive scripting, user interaction, and printing.
 * Releases numbered 0.8.x aim to progressively add support for all remaining Pdfium editing functions to `pdfium-render`.
 * Releases numbered 0.9.x aim to fill any remaining gaps in the high-level interface prior to 1.0.
 
-There are 368 `FPDF_*` functions in the Pdfium API. As of version 0.8.19, 329 (89%) have
+There are 377 `FPDF_*` functions in the Pdfium API. As of version 0.8.24, 334 (89%) have
 bindings available in `PdfiumLibraryBindings`, with the functionality of the majority of these
 available via the `pdfium-render` high-level interface.
 
@@ -360,6 +367,32 @@ at <https://github.com/ajrcarey/pdfium-render/issues>.
 
 ## Version history
 
+* 0.8.24: introduced crate feature flags for selecting Pdfium API versions to use in
+  `PdfiumLibraryBindings`; reworked `build.rs` to output bindings for multiple sets of Pdfium header
+  files; reworked bindings implementations to differentiate between API versions that include the
+  `FPDFFont_*` and `FPDFText_GetTextObject()` functions added in 0.8.23, and API versions that do not;
+  internally reorganize source code layout to make the code structure clearer. 
+* 0.8.23: synchronized Pdfium API header files against mainline; removes binding for function
+  `FPDFText_GetTextRenderMode()` in response to upstream change described at
+  <https://github.com/ajrcarey/pdfium-render/issues/151>; adds bindings for `FPDFText_GetTextObject()`,
+  `FPDFFont_GetFamilyName()`, `FPDFFont_GetIsEmbedded()`, and `FPDFFont_GetFontData()` functions;
+  deprecates `PdfFont::name()` function in favour of `PdfFont::family()` to match upstream naming
+  changes; adds new functions `PdfFont::is_embedded()` and `PdfFont::data()` for retrieving embedded font data; updates `examples/fonts.rs` example; adds new function `PdfPageTextChar::text_object()`
+  for retrieving the page object containing a specific character; adds WASM bindings utility function
+  `copy_string_to_pdfium()` to correctly copy the string data of an `FPDF_WIDESTRING` to Pdfium's WASM memory module, instead of just the pointer location. Deprecated items will be removed in release 0.9.0.
+* 0.8.22: adds bindings for `FPDFPage_TransformAnnots()`, thanks to an excellent contribution from
+  <https://github.com/liammcdermott>; adds bindings for `FPDF_GetPageSizeByIndexF()`, thanks to an excellent
+  contribution from <https://github.com/DorianRudolph>; updates all examples and tests that reference
+  functionality from the `image` crate to use calls compatible with both `image` 0.25.x and 0.24.x,
+  thanks to an excellent contribution from <https://github.com/DorianRudolph>; adds support for both
+  static linking to a dynamically-built Pdfium library at compile time and dynamic binding caching
+  for improved runtime performance, thanks to an excellent contribution from <https://github.com/DorianRudolph>;
+  adds the `PdfPages::get_page_size()` and `PdfPages::get_page_sizes()` functions, thanks to an excellent
+  contribution from <https://github.com/DorianRudolph>; removes an unneeded internal dependency on
+  the `iter_tools` crate, thanks to an excellent contribution from <https://github.com/aruediger>.
+* 0.8.21: adds the `PdfFormFieldText::set_value()` function for setting the values of text
+  form fields, thanks to an excellent contribution from <https://github.com/liammcdermott>;
+  adds new `examples/fill_form_field.rs` example.
 * 0.8.20: adds `PdfPageAnnotationAttachmentPoints` struct and matching iterator; adds new annotation functions
   to `PdfPageAnnotationCommon` along with their matching implementations in `PdfPageAnnotationPrivate`,
   including `PdfPageAnnotationCommon::set_bounds()`, `PdfPageAnnotationCommon::set_position()`,
