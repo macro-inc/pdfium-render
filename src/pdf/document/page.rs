@@ -5,6 +5,7 @@ pub mod annotation;
 pub mod annotations;
 pub mod boundaries;
 pub mod field;
+pub(crate) mod index_cache;
 pub mod links;
 pub mod object;
 pub mod objects;
@@ -25,10 +26,10 @@ use crate::bindgen::{
 use crate::bindings::PdfiumLibraryBindings;
 use crate::create_transform_setters;
 use crate::error::{PdfiumError, PdfiumInternalError};
-use crate::page_index_cache::PdfPageIndexCache;
 use crate::pdf::bitmap::{PdfBitmap, PdfBitmapFormat, Pixels};
 use crate::pdf::document::page::annotations::PdfPageAnnotations;
 use crate::pdf::document::page::boundaries::PdfPageBoundaries;
+use crate::pdf::document::page::index_cache::PdfPageIndexCache;
 use crate::pdf::document::page::links::PdfPageLinks;
 use crate::pdf::document::page::objects::common::PdfPageObjectsCommon;
 use crate::pdf::document::page::objects::PdfPageObjects;
@@ -1097,7 +1098,7 @@ impl<'a> Drop for PdfPage<'a> {
 mod tests {
     use crate::prelude::*;
     use crate::utils::test::test_bind_to_pdfium;
-    use image::GenericImageView;
+    use image_025::{GenericImageView, ImageFormat};
 
     #[test]
     fn test_page_rendering_reusing_bitmap() -> Result<(), PdfiumError> {
@@ -1122,7 +1123,7 @@ mod tests {
             bitmap
                 .as_image()
                 .into_rgb8()
-                .save_with_format(format!("test-page-{}.jpg", index), image::ImageFormat::Jpeg)
+                .save_with_format(format!("test-page-{}.jpg", index), ImageFormat::Jpeg)
                 .map_err(|_| PdfiumError::ImageError)?;
         }
 

@@ -11,6 +11,12 @@ mod bindgen {
     #[cfg(feature = "pdfium_future")]
     include!("bindgen/pdfium_future.rs");
 
+    #[cfg(feature = "pdfium_6721")]
+    include!("bindgen/pdfium_6721.rs");
+
+    #[cfg(feature = "pdfium_6666")]
+    include!("bindgen/pdfium_6666.rs");
+
     #[cfg(feature = "pdfium_6611")]
     include!("bindgen/pdfium_6611.rs");
 
@@ -56,12 +62,11 @@ mod bindgen {
     #[cfg(feature = "pdfium_5961")]
     include!("bindgen/pdfium_5961.rs");
 
-    pub type size_t = usize;
+    pub(crate) type size_t = usize;
 }
 
 mod bindings;
 mod error;
-mod page_index_cache;
 mod pdf;
 mod pdfium;
 mod utils;
@@ -175,7 +180,7 @@ pub mod prelude {
 mod tests {
     use crate::prelude::*;
     use crate::utils::test::test_bind_to_pdfium;
-    use image::ImageFormat;
+    use image_025::ImageFormat;
     use std::fs::File;
     use std::path::Path;
 
@@ -212,7 +217,7 @@ mod tests {
                 page.render_with_config(&render_config)?
                     .as_image() // Renders this page to an Image::DynamicImage...
                     .into_rgb8() // ... then converts it to an Image::Image ...
-                    .save_with_format(format!("test-page-{}.jpg", index), image::ImageFormat::Jpeg) // ... and saves it to a file.
+                    .save_with_format(format!("test-page-{}.jpg", index), ImageFormat::Jpeg) // ... and saves it to a file.
                     .map_err(|_| PdfiumError::ImageError)?;
             }
 

@@ -18,6 +18,8 @@ pub const FPDF_ERR_FORMAT: u32 = 3;
 pub const FPDF_ERR_PASSWORD: u32 = 4;
 pub const FPDF_ERR_SECURITY: u32 = 5;
 pub const FPDF_ERR_PAGE: u32 = 6;
+pub const FPDF_ERR_XFALOAD: u32 = 7;
+pub const FPDF_ERR_XFALAYOUT: u32 = 8;
 pub const FPDF_ANNOT: u32 = 1;
 pub const FPDF_LCD_TEXT: u32 = 2;
 pub const FPDF_NO_NATIVETEXT: u32 = 4;
@@ -288,6 +290,16 @@ pub const FXCT_NWSE: u32 = 2;
 pub const FXCT_VBEAM: u32 = 3;
 pub const FXCT_HBEAM: u32 = 4;
 pub const FXCT_HAND: u32 = 5;
+pub const FXFA_PAGEVIEWEVENT_POSTADDED: u32 = 1;
+pub const FXFA_PAGEVIEWEVENT_POSTREMOVED: u32 = 3;
+pub const FXFA_MENU_COPY: u32 = 1;
+pub const FXFA_MENU_CUT: u32 = 2;
+pub const FXFA_MENU_SELECTALL: u32 = 4;
+pub const FXFA_MENU_UNDO: u32 = 8;
+pub const FXFA_MENU_REDO: u32 = 16;
+pub const FXFA_MENU_PASTE: u32 = 32;
+pub const FXFA_SAVEAS_XML: u32 = 1;
+pub const FXFA_SAVEAS_XDP: u32 = 2;
 pub const FPDFDOC_AACTION_WC: u32 = 16;
 pub const FPDFDOC_AACTION_WS: u32 = 17;
 pub const FPDFDOC_AACTION_DS: u32 = 18;
@@ -303,7 +315,15 @@ pub const FPDF_FORMFIELD_COMBOBOX: u32 = 4;
 pub const FPDF_FORMFIELD_LISTBOX: u32 = 5;
 pub const FPDF_FORMFIELD_TEXTFIELD: u32 = 6;
 pub const FPDF_FORMFIELD_SIGNATURE: u32 = 7;
-pub const FPDF_FORMFIELD_COUNT: u32 = 8;
+pub const FPDF_FORMFIELD_XFA: u32 = 8;
+pub const FPDF_FORMFIELD_XFA_CHECKBOX: u32 = 9;
+pub const FPDF_FORMFIELD_XFA_COMBOBOX: u32 = 10;
+pub const FPDF_FORMFIELD_XFA_IMAGEFIELD: u32 = 11;
+pub const FPDF_FORMFIELD_XFA_LISTBOX: u32 = 12;
+pub const FPDF_FORMFIELD_XFA_PUSHBUTTON: u32 = 13;
+pub const FPDF_FORMFIELD_XFA_SIGNATURE: u32 = 14;
+pub const FPDF_FORMFIELD_XFA_TEXTFIELD: u32 = 15;
+pub const FPDF_FORMFIELD_COUNT: u32 = 16;
 pub const FPDF_INCREMENTAL: u32 = 1;
 pub const FPDF_NO_INCREMENTAL: u32 = 2;
 pub const FPDF_REMOVE_SECURITY: u32 = 3;
@@ -1569,6 +1589,15 @@ extern "C" {
     );
 }
 extern "C" {
+    #[doc = " Experimental API.\n Function: FPDF_RenderPageSkia\n          Render contents of a page to a Skia SkCanvas.\n Parameters:\n          canvas      -   SkCanvas to render to.\n          page        -   Handle to the page.\n          size_x      -   Horizontal size (in pixels) for displaying the page.\n          size_y      -   Vertical size (in pixels) for displaying the page.\n Return value:\n          None."]
+    pub fn FPDF_RenderPageSkia(
+        canvas: FPDF_SKIA_CANVAS,
+        page: FPDF_PAGE,
+        size_x: ::std::os::raw::c_int,
+        size_y: ::std::os::raw::c_int,
+    );
+}
+extern "C" {
     #[doc = " Function: FPDF_ClosePage\n          Close a loaded PDF page.\n Parameters:\n          page        -   Handle to the loaded page.\n Return value:\n          None."]
     pub fn FPDF_ClosePage(page: FPDF_PAGE);
 }
@@ -1734,6 +1763,30 @@ extern "C" {
         buflen: ::std::os::raw::c_ulong,
         out_buflen: *mut ::std::os::raw::c_ulong,
     ) -> FPDF_BOOL;
+}
+extern "C" {
+    #[doc = " Function: FPDF_GetRecommendedV8Flags\n          Returns a space-separated string of command line flags that are\n          recommended to be passed into V8 via V8::SetFlagsFromString()\n          prior to initializing the PDFium library.\n Parameters:\n          None.\n Return value:\n          NUL-terminated string of the form \"--flag1 --flag2\".\n          The caller must not attempt to modify or free the result."]
+    pub fn FPDF_GetRecommendedV8Flags() -> *const ::std::os::raw::c_char;
+}
+extern "C" {
+    #[doc = " Experimental API.\n Function: FPDF_GetArrayBufferAllocatorSharedInstance()\n          Helper function for initializing V8 isolates that will\n          use PDFium's internal memory management.\n Parameters:\n          None.\n Return Value:\n          Pointer to a suitable v8::ArrayBuffer::Allocator, returned\n          as void for C compatibility.\n Notes:\n          Use is optional, but allows external creation of isolates\n          matching the ones PDFium will make when none is provided\n          via |FPDF_LIBRARY_CONFIG::m_pIsolate|.\n\n          Can only be called when the library is in an uninitialized or\n          destroyed state."]
+    pub fn FPDF_GetArrayBufferAllocatorSharedInstance() -> *mut ::std::os::raw::c_void;
+}
+extern "C" {
+    #[doc = " Function: FPDF_BStr_Init\n          Helper function to initialize a FPDF_BSTR."]
+    pub fn FPDF_BStr_Init(bstr: *mut FPDF_BSTR) -> FPDF_RESULT;
+}
+extern "C" {
+    #[doc = " Function: FPDF_BStr_Set\n          Helper function to copy string data into the FPDF_BSTR."]
+    pub fn FPDF_BStr_Set(
+        bstr: *mut FPDF_BSTR,
+        cstr: *const ::std::os::raw::c_char,
+        length: ::std::os::raw::c_int,
+    ) -> FPDF_RESULT;
+}
+extern "C" {
+    #[doc = " Function: FPDF_BStr_Clear\n          Helper function to clear a FPDF_BSTR."]
+    pub fn FPDF_BStr_Clear(bstr: *mut FPDF_BSTR) -> FPDF_RESULT;
 }
 extern "C" {
     #[doc = " Function: FPDFText_LoadPage\n          Prepare information about all characters in a page.\n Parameters:\n          page    -   Handle to the page. Returned by FPDF_LoadPage function\n                      (in FPDFVIEW module).\n Return value:\n          A handle to the text page information structure.\n          NULL if something goes wrong.\n Comments:\n          Application must call FPDFText_ClosePage to release the text page\n          information.\n"]
@@ -2449,6 +2502,11 @@ extern "C" {
     #[doc = " Experimental API.\n\n Determine if |document| represents a tagged PDF.\n\n For the definition of tagged PDF, See (see 10.7 \"Tagged PDF\" in PDF\n Reference 1.7).\n\n   document - handle to a document.\n\n Returns |true| iff |document| is a tagged PDF."]
     pub fn FPDFCatalog_IsTagged(document: FPDF_DOCUMENT) -> FPDF_BOOL;
 }
+extern "C" {
+    #[doc = " Experimental API.\n Sets the language of |document| to |language|.\n\n document - handle to a document.\n language - the language to set to.\n\n Returns TRUE on success."]
+    pub fn FPDFCatalog_SetLanguage(document: FPDF_DOCUMENT, language: FPDF_BYTESTRING)
+        -> FPDF_BOOL;
+}
 #[doc = " Convenience types."]
 pub type __u_char = ::std::os::raw::c_uchar;
 pub type __u_short = ::std::os::raw::c_ushort;
@@ -2820,10 +2878,10 @@ extern "C" {
     ) -> FPDF_BOOL;
 }
 extern "C" {
-    #[doc = " Experimental API.\n Get the name of a content mark.\n\n   mark       - handle to a content mark.\n   buffer     - buffer for holding the returned name in UTF-16LE. This is only\n                modified if |buflen| is longer than the length of the name.\n                Optional, pass null to just retrieve the size of the buffer\n                needed.\n   buflen     - length of the buffer.\n   out_buflen - pointer to variable that will receive the minimum buffer size\n                to contain the name. Not filled if FALSE is returned.\n\n Returns TRUE if the operation succeeded, FALSE if it failed."]
+    #[doc = " Experimental API.\n Get the name of a content mark.\n\n   mark       - handle to a content mark.\n   buffer     - buffer for holding the returned name in UTF-16LE. This is only\n                modified if |buflen| is large enough to store the name.\n                Optional, pass null to just retrieve the size of the buffer\n                needed.\n   buflen     - length of the buffer in bytes.\n   out_buflen - pointer to variable that will receive the minimum buffer size\n                in bytes to contain the name. This is a required parameter.\n                Not filled if FALSE is returned.\n\n Returns TRUE if the operation succeeded, FALSE if it failed."]
     pub fn FPDFPageObjMark_GetName(
         mark: FPDF_PAGEOBJECTMARK,
-        buffer: *mut ::std::os::raw::c_void,
+        buffer: *mut FPDF_WCHAR,
         buflen: ::std::os::raw::c_ulong,
         out_buflen: *mut ::std::os::raw::c_ulong,
     ) -> FPDF_BOOL;
@@ -2833,11 +2891,11 @@ extern "C" {
     pub fn FPDFPageObjMark_CountParams(mark: FPDF_PAGEOBJECTMARK) -> ::std::os::raw::c_int;
 }
 extern "C" {
-    #[doc = " Experimental API.\n Get the key of a property in a content mark.\n\n   mark       - handle to a content mark.\n   index      - index of the property.\n   buffer     - buffer for holding the returned key in UTF-16LE. This is only\n                modified if |buflen| is longer than the length of the key.\n                Optional, pass null to just retrieve the size of the buffer\n                needed.\n   buflen     - length of the buffer.\n   out_buflen - pointer to variable that will receive the minimum buffer size\n                to contain the key. Not filled if FALSE is returned.\n\n Returns TRUE if the operation was successful, FALSE otherwise."]
+    #[doc = " Experimental API.\n Get the key of a property in a content mark.\n\n   mark       - handle to a content mark.\n   index      - index of the property.\n   buffer     - buffer for holding the returned key in UTF-16LE. This is only\n                modified if |buflen| is large enough to store the key.\n                Optional, pass null to just retrieve the size of the buffer\n                needed.\n   buflen     - length of the buffer in bytes.\n   out_buflen - pointer to variable that will receive the minimum buffer size\n                in bytes to contain the name. This is a required parameter.\n                Not filled if FALSE is returned.\n\n Returns TRUE if the operation was successful, FALSE otherwise."]
     pub fn FPDFPageObjMark_GetParamKey(
         mark: FPDF_PAGEOBJECTMARK,
         index: ::std::os::raw::c_ulong,
-        buffer: *mut ::std::os::raw::c_void,
+        buffer: *mut FPDF_WCHAR,
         buflen: ::std::os::raw::c_ulong,
         out_buflen: *mut ::std::os::raw::c_ulong,
     ) -> FPDF_BOOL;
@@ -2858,21 +2916,21 @@ extern "C" {
     ) -> FPDF_BOOL;
 }
 extern "C" {
-    #[doc = " Experimental API.\n Get the value of a string property in a content mark by key.\n\n   mark       - handle to a content mark.\n   key        - string key of the property.\n   buffer     - buffer for holding the returned value in UTF-16LE. This is\n                only modified if |buflen| is longer than the length of the\n                value.\n                Optional, pass null to just retrieve the size of the buffer\n                needed.\n   buflen     - length of the buffer.\n   out_buflen - pointer to variable that will receive the minimum buffer size\n                to contain the value. Not filled if FALSE is returned.\n\n Returns TRUE if the key maps to a string/blob value, FALSE otherwise."]
+    #[doc = " Experimental API.\n Get the value of a string property in a content mark by key.\n\n   mark       - handle to a content mark.\n   key        - string key of the property.\n   buffer     - buffer for holding the returned value in UTF-16LE. This is\n                only modified if |buflen| is large enough to store the value.\n                Optional, pass null to just retrieve the size of the buffer\n                needed.\n   buflen     - length of the buffer in bytes.\n   out_buflen - pointer to variable that will receive the minimum buffer size\n                in bytes to contain the name. This is a required parameter.\n                Not filled if FALSE is returned.\n\n Returns TRUE if the key maps to a string/blob value, FALSE otherwise."]
     pub fn FPDFPageObjMark_GetParamStringValue(
         mark: FPDF_PAGEOBJECTMARK,
         key: FPDF_BYTESTRING,
-        buffer: *mut ::std::os::raw::c_void,
+        buffer: *mut FPDF_WCHAR,
         buflen: ::std::os::raw::c_ulong,
         out_buflen: *mut ::std::os::raw::c_ulong,
     ) -> FPDF_BOOL;
 }
 extern "C" {
-    #[doc = " Experimental API.\n Get the value of a blob property in a content mark by key.\n\n   mark       - handle to a content mark.\n   key        - string key of the property.\n   buffer     - buffer for holding the returned value. This is only modified\n                if |buflen| is at least as long as the length of the value.\n                Optional, pass null to just retrieve the size of the buffer\n                needed.\n   buflen     - length of the buffer.\n   out_buflen - pointer to variable that will receive the minimum buffer size\n                to contain the value. Not filled if FALSE is returned.\n\n Returns TRUE if the key maps to a string/blob value, FALSE otherwise."]
+    #[doc = " Experimental API.\n Get the value of a blob property in a content mark by key.\n\n   mark       - handle to a content mark.\n   key        - string key of the property.\n   buffer     - buffer for holding the returned value. This is only modified\n                if |buflen| is large enough to store the value.\n                Optional, pass null to just retrieve the size of the buffer\n                needed.\n   buflen     - length of the buffer in bytes.\n   out_buflen - pointer to variable that will receive the minimum buffer size\n                in bytes to contain the name. This is a required parameter.\n                Not filled if FALSE is returned.\n\n Returns TRUE if the key maps to a string/blob value, FALSE otherwise."]
     pub fn FPDFPageObjMark_GetParamBlobValue(
         mark: FPDF_PAGEOBJECTMARK,
         key: FPDF_BYTESTRING,
-        buffer: *mut ::std::os::raw::c_void,
+        buffer: *mut ::std::os::raw::c_uchar,
         buflen: ::std::os::raw::c_ulong,
         out_buflen: *mut ::std::os::raw::c_ulong,
     ) -> FPDF_BOOL;
@@ -2904,7 +2962,7 @@ extern "C" {
         page_object: FPDF_PAGEOBJECT,
         mark: FPDF_PAGEOBJECTMARK,
         key: FPDF_BYTESTRING,
-        value: *mut ::std::os::raw::c_void,
+        value: *const ::std::os::raw::c_uchar,
         value_len: ::std::os::raw::c_ulong,
     ) -> FPDF_BOOL;
 }
@@ -5746,6 +5804,19 @@ extern "C" {
     pub fn FPDF_FFLDraw(
         hHandle: FPDF_FORMHANDLE,
         bitmap: FPDF_BITMAP,
+        page: FPDF_PAGE,
+        start_x: ::std::os::raw::c_int,
+        start_y: ::std::os::raw::c_int,
+        size_x: ::std::os::raw::c_int,
+        size_y: ::std::os::raw::c_int,
+        rotate: ::std::os::raw::c_int,
+        flags: ::std::os::raw::c_int,
+    );
+}
+extern "C" {
+    pub fn FPDF_FFLDrawSkia(
+        hHandle: FPDF_FORMHANDLE,
+        canvas: FPDF_SKIA_CANVAS,
         page: FPDF_PAGE,
         start_x: ::std::os::raw::c_int,
         start_y: ::std::os::raw::c_int,
